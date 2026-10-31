@@ -46,6 +46,16 @@
     </div>
   </div>
 
+  <div class="overlay" id="startupOverlay" hidden>
+    <div class="modal" role="alertdialog" aria-labelledby="startupTitle" aria-describedby="startupMessage">
+      <div style="color:var(--gold);font-size:11px;letter-spacing:2px;margin-bottom:12px">ORIENTAL HARBOR · CONNECTION</div>
+      <h2 id="startupTitle">正在连接登录系统…</h2>
+      <p id="startupMessage" style="margin-bottom:16px">页面已经打开，正在加载 Firebase 登录和聊天组件。请检查网络连接。</p>
+      <div class="form-error" id="startupError" hidden></div>
+      <button class="primary" id="startupRetry" type="button">重新加载，重试连接</button>
+      <p class="auth-footer">如果这个窗口一直不消失，说明网站页面虽然能打开，但登录服务可能无法连接。请把此窗口截图发给网站管理员；无需提供密码。</p>
+    </div>
+  </div>
   <div class="overlay" id="authOverlay" hidden><div class="modal"><div style="color:var(--gold);font-size:11px;letter-spacing:3px;margin-bottom:12px">ORIENTAL HARBOR · ACCESS</div><h2>欢迎来到东方港</h2><p>这里是一间属于朋友的私人会客厅。请登录，或注册账号后申请加入。</p><div class="switch-tabs"><button class="on" type="button" id="loginTab">登录</button><button type="button" id="signupTab">注册</button></div><form id="authForm"><div id="nicknameField" hidden><label for="nickname">你的昵称</label><input id="nickname" placeholder="例如：星河" maxlength="24" autocomplete="nickname" /></div><label for="email">电子邮箱</label><input type="email" id="email" placeholder="you@example.com" required autocomplete="email" /><label for="password">密码（至少6位）</label><input type="password" id="password" placeholder="请输入你的密码" required minlength="6" autocomplete="current-password" /><div id="authError" class="form-error" hidden></div><button class="primary" type="submit" id="authSubmit">登录会客厅</button></form><button class="secondary-action" id="resetPassword">忘记密码？发送重置邮件</button><p class="auth-footer">首次注册后，需要房主批准才能查看聊天记录。请使用自己可用的邮箱，不要把密码发给任何人。</p></div></div>
   <div class="overlay" id="pendingOverlay" hidden><div class="modal"><div style="color:var(--gold);font-size:11px;letter-spacing:3px;margin-bottom:12px">APPLICATION / ACCESS REQUEST</div><h2 id="pendingTitle">等待房主批准</h2><p id="pendingDescription">你的账号已经创建。向房主发出申请并等待批准后，即可加入聊天室。</p><label>你的用户编号（房主必要时可以用它核对身份）</label><code class="pending-uid" id="uidLabel"></code><div id="pendingError" class="form-error" hidden></div><button id="applyBtn" class="primary">申请加入会客厅</button><button class="secondary-action" id="pendingLogout">退出账号</button><p class="auth-footer">请通过你们已经认识的其他联系方式告诉房主你申请了加入，避免陌生人冒用昵称。</p></div></div>
   <div class="overlay" id="membersOverlay" hidden><div class="modal"><div style="display:flex;align-items:center;justify-content:space-between"><h2>已批准成员</h2><button id="closeMembers" class="header-btn">关闭</button></div><p>这里是可以阅读和发送消息的成员名单。房主可以移除不再受邀的成员。</p><div id="membersDialogList" class="small-list"></div></div></div>
@@ -65,6 +75,29 @@
     function showDemo(){ $('demoBanner').classList.add('active');$('topExit').textContent='演示模式';$('topExit').disabled=true;$('sideExit').disabled=true;$('editName').disabled=true;$('messageInput').disabled=true;$('sendBtn').disabled=true;$('selfName').textContent='访客预览';$('selfRole').textContent='网站界面演示';$('selfAvatar').textContent='東';setNetwork('离线预览');let box=$('messages');box.innerHTML='';let d=document.createElement('div');d.className='date-sep';d.textContent='示例对话 · 不是真实聊天';box.append(d);[{name:'东方港管事',time:'09:41',text:'欢迎来到东方港会客厅！这里是我们的小小私人空间。'},{name:'霁川',time:'09:42',text:'已经把夜间主题做好了。这里以后会保存大家真正发送的消息。'},{name:'你',time:'09:43',text:'期待大家都能来这里聊天！',mine:true},{name:'东方港管事',time:'09:44',text:'请先在 Firebase 配置身份验证和数据库，再把网站发布到 GitHub Pages。'}].forEach(x=>box.append(renderMessage(x)));$('membersList').innerHTML='<div class="small-person"><span class="avatar">東</span>房主 · 演示</div><div class="small-person"><span class="avatar">霁</span>好友 · 演示</div>';}
     $('mobileToggle').onclick=()=> $('sidebar').classList.toggle('open');$('roomNav').onclick=()=>{$('sidebar').classList.remove('open');$('messages').scrollTop=$('messages').scrollHeight};$('membersNav').onclick=()=>{if(!CHAT_CONFIG.firebase){toast('这是界面预览；上线后可查看已批准成员');return;}$('sidebar').classList.remove('open');document.querySelector('.detail')?.scrollIntoView({behavior:'smooth'});toast('成员列表在右侧栏；手机端稍后会支持完整管理界面。')};
     if(!CHAT_CONFIG.firebase || !CHAT_CONFIG.ownerUid) showDemo();
+    else {
+      $('startupOverlay').hidden=false;
+      setNetwork('正在连接登录服务');
+      $('startupRetry').onclick=()=>location.reload();
+      window.__chatStarted=false;
+      window.chatConnectionFailure=(message)=>{
+        if(window.__chatStarted)return;
+        $('startupOverlay').hidden=false;
+        $('startupTitle').textContent='登录服务暂时无法连接';
+        $('startupMessage').textContent='网站页面已经打开，但无法正常启动注册、登录和实时聊天功能。';
+        $('startupError').hidden=false;
+        $('startupError').textContent=message;
+        setNetwork('连接失败');
+      };
+      window.chatConnectionReady=()=>{
+        window.__chatStarted=true;
+        clearTimeout(window.__chatStartupTimeout);
+        $('startupOverlay').hidden=true;
+      };
+      window.__chatStartupTimeout=setTimeout(()=>window.chatConnectionFailure('等待 Firebase 登录响应超过 15 秒。请检查设备能否访问 Google Firebase 服务；中国大陆网络可能出现连接不稳定或被拦截。此时不能单靠刷新页面解决，需要调整网络或迁移聊天后台。'),15000);
+      window.addEventListener('error',e=>{if(!window.__chatStarted)window.chatConnectionFailure('网页启动时发生错误：'+(e.message||'未知错误'));});
+      window.addEventListener('unhandledrejection',e=>{if(!window.__chatStarted)window.chatConnectionFailure('网页启动时发生异步错误：'+(e.reason?.message||'网络或组件加载失败'));});
+    }
   </script>
   <script type="module">
     const cfg=window.CHAT_CONFIG;
@@ -72,8 +105,8 @@
       const V='13.1.0', B=`https://www.gstatic.com/firebasejs/${V}/`;
       let F,A,D;
       try{[F,A,D]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);}
-      catch(e){toast('未能下载 Firebase 组件：请检查网络连接');setNetwork('连接失败');throw e;}
-      const app=F.initializeApp(cfg.firebase), auth=A.getAuth(app), db=D.getFirestore(app);
+      catch(e){window.chatConnectionFailure('Firebase 组件下载失败：'+(e?.message||'请检查网络连接')+'。这通常不是账号密码问题。');throw e;}
+      let app,auth,db;try{app=F.initializeApp(cfg.firebase);auth=A.getAuth(app);db=D.getFirestore(app)}catch(e){window.chatConnectionFailure('Firebase 初始化失败：'+(e?.message||'未知错误'));throw e;}
       let user=null, owner=false, connected=false, memberUnsub=null, requestUnsub=null, msgUnsub=null, membersUnsub=null, applicationsUnsub=null, latestRequests=[], authMode='login';
       let membership=false, pending=false, sending=false;
       const clean=()=>{for(const f of [memberUnsub,requestUnsub,msgUnsub,membersUnsub,applicationsUnsub]){try{f?.()}catch(e){}}memberUnsub=requestUnsub=msgUnsub=membersUnsub=applicationsUnsub=null;connected=false;membership=false;pending=false;latestRequests=[];setNetwork('准备连接');};
@@ -95,7 +128,7 @@
       function subscribeApplications(){applicationsUnsub?.();$('applicationsNav').hidden=false;applicationsUnsub=D.onSnapshot(D.collection(db,'joinRequests'),snap=>{latestRequests=snap.docs.map(d=>({uid:d.id,...d.data()}));$('requestCount').textContent=latestRequests.length;renderApplications();},e=>toast(errText(e)))}
       function renderApplications(){const box=$('requestItems');box.replaceChildren();if(!latestRequests.length){box.innerHTML='<div class="no-requests">目前没有新的加入申请。可以将网站地址发给朋友，让他们注册并申请。</div>';return;}for(const req of latestRequests){const card=document.createElement('div');card.className='member-request';const name=document.createElement('b');name.textContent=req.displayName||'未填写昵称';const email=document.createElement('small');email.textContent=req.email||'未提供邮箱';const uid=document.createElement('small');uid.textContent='用户编号：'+req.uid;const acts=document.createElement('div');acts.className='request-buttons';const approve=document.createElement('button');approve.className='approve';approve.textContent='批准加入';approve.onclick=async()=>{approve.disabled=true;try{await D.setDoc(D.doc(db,'members',req.uid),{displayName:req.displayName||'朋友',joinedAt:D.serverTimestamp()});await D.deleteDoc(D.doc(db,'joinRequests',req.uid));toast('已批准：'+(req.displayName||'朋友'))}catch(e){toast(errText(e));approve.disabled=false}};const reject=document.createElement('button');reject.textContent='拒绝';reject.onclick=async()=>{if(!confirm('确定拒绝这份申请？'))return;try{await D.deleteDoc(D.doc(db,'joinRequests',req.uid));toast('申请已拒绝')}catch(e){toast(errText(e))}};acts.append(approve,reject);card.append(name,email,uid,acts);box.append(card)}}
       function watchMembership(){memberUnsub?.();requestUnsub?.();memberUnsub=D.onSnapshot(D.doc(db,'members',user.uid),snap=>{const now=snap.exists();if(now && !membership){requestUnsub?.();enterRoom()}else if(!now && membership){msgUnsub?.();membersUnsub?.();membership=false;showPending()}else if(!now){membership=false;updateIdentity();showPending()}},e=>{raise('pendingError',errText(e));showPending()});requestUnsub=D.onSnapshot(D.doc(db,'joinRequests',user.uid),snap=>{pending=snap.exists();if(!membership){updateIdentity();showPending();}},e=>raise('pendingError',errText(e)))}
-      A.onAuthStateChanged(auth,u=>{clean();user=u;owner=!!u && u.uid===cfg.ownerUid;hideLayers();if(!u){$('applicationsNav').hidden=true;$('messageInput').disabled=true;$('sendBtn').disabled=true;showAuth();return}updateIdentity();if(owner)enterRoom();else watchMembership();});
+      A.onAuthStateChanged(auth,u=>{window.chatConnectionReady();clean();user=u;owner=!!u && u.uid===cfg.ownerUid;hideLayers();if(!u){$('applicationsNav').hidden=true;$('messageInput').disabled=true;$('sendBtn').disabled=true;showAuth();return}updateIdentity();if(owner)enterRoom();else watchMembership();},e=>window.chatConnectionFailure('登录状态检查失败：'+(e?.message||'请检查网络连接')));
       const form=$('authForm');function switchMode(mode){authMode=mode;$('loginTab').classList.toggle('on',mode==='login');$('signupTab').classList.toggle('on',mode==='signup');$('nicknameField').hidden=mode==='login';$('authSubmit').textContent=mode==='login'?'登录会客厅':'注册并申请加入';$('password').autocomplete=mode==='login'?'current-password':'new-password';$('authError').hidden=true;}
       $('loginTab').onclick=()=>switchMode('login');$('signupTab').onclick=()=>switchMode('signup');
       form.onsubmit=async e=>{e.preventDefault();const btn=$('authSubmit');btn.disabled=true;$('authError').hidden=true;try{const email=$('email').value.trim(),pw=$('password').value;let result;if(authMode==='signup'){const nick=$('nickname').value.trim();if(nick.length<2)throw new Error('请填写至少2个字的昵称。');result=await A.createUserWithEmailAndPassword(auth,email,pw);await A.updateProfile(result.user,{displayName:nick});user=result.user;updateIdentity();}else result=await A.signInWithEmailAndPassword(auth,email,pw);form.reset();}catch(e){raise('authError',errText(e))}finally{btn.disabled=false;}};
